@@ -7,6 +7,11 @@ directory = "."
 [observability]
 enabled = false
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+persist = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "home_hub_db"
