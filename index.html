@@ -1,0 +1,3308 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Hub - All-in-One Household Management</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- React 18 & ReactDOM 18 CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+  <!-- Babel Standalone for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Optional Firebase Fallback SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.FirebaseSDK = {
+      initializeApp,
+      getAuth,
+      signInAnonymously,
+      signInWithCustomToken,
+      getFirestore,
+      doc,
+      setDoc,
+      onSnapshot
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(107, 114, 128, 0.7);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-full transition-colors duration-200">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- INITIAL SAMPLE DATA ---
+    const INITIAL_DATA = {
+      chores: [
+        { id: 'c1', title: 'Take out recycling & trash bins', room: 'Kitchen', frequency: 'Daily', priority: 'High', dueDate: 'Today', completed: false },
+        { id: 'c2', title: 'Wipe kitchen countertops & stove', room: 'Kitchen', frequency: 'Daily', priority: 'Medium', dueDate: 'Today', completed: true },
+        { id: 'c3', title: 'Vacuum living room rug', room: 'Living Room', frequency: 'Weekly', priority: 'Medium', dueDate: 'Today', completed: false },
+        { id: 'c4', title: 'Clean bathroom sinks & mirrors', room: 'Bathroom', frequency: 'Weekly', priority: 'Low', dueDate: 'Tomorrow', completed: false },
+        { id: 'c5', title: 'Replace HVAC air filter (40x65x2.5 cm)', room: 'General', frequency: 'Monthly', priority: 'High', dueDate: 'In 3 days', completed: false },
+        { id: 'c6', title: 'Mow front lawn & trim edges', room: 'Yard', frequency: 'Weekly', priority: 'Medium', dueDate: 'Today', completed: false },
+        { id: 'c7', title: 'Water indoor houseplants', room: 'Living Room', frequency: 'Weekly', priority: 'Low', dueDate: 'Today', completed: true }
+      ],
+      family: [
+        { 
+          id: 'fm1', 
+          name: 'Mark Miller', 
+          relation: 'Father', 
+          birthdate: '1988-05-14', 
+          bloodType: 'O+', 
+          clothingSizes: 'Shirt: L, Shoes: UK 10, Pants: 34/32', 
+          medicalNotes: 'Allergic to penicillin. Family Doctor: Dr. Adams (021 555 4321).',
+          pin: '1234'
+        },
+        { 
+          id: 'fm2', 
+          name: 'Sarah Miller', 
+          relation: 'Mother', 
+          birthdate: '1990-11-22', 
+          bloodType: 'A+', 
+          clothingSizes: 'Dress: M / 10, Shoes: UK 5.5', 
+          medicalNotes: 'EpiPen stored in top kitchen drawer for severe bee sting allergy.',
+          pin: '1234'
+        },
+        { 
+          id: 'fm3', 
+          name: 'Leo Miller', 
+          relation: 'Son', 
+          birthdate: '2018-03-09', 
+          bloodType: 'O+', 
+          clothingSizes: 'Kids 7/8 yrs, Shoes: UK 1', 
+          medicalNotes: 'Grade 2 - Oakwood Primary. Mild peanut sensitivity.',
+          pin: ''
+        }
+      ],
+      pets: [
+        { 
+          id: 'p1', 
+          name: 'Barnaby', 
+          species: 'Dog (Golden Retriever)', 
+          age: '4 yrs', 
+          chipId: '985141002384912', 
+          vet: 'Dr. Smith - Paws & Claws (021 345 6789)', 
+          diet: '2 cups dry kibble twice daily (08:00 & 18:00)', 
+          medication: 'Monthly NexGard flea & tick chewable on 1st of month.', 
+          notes: 'Annual Rabies vaccine due November 2026. Very friendly with children.' 
+        },
+        { 
+          id: 'p2', 
+          name: 'Luna', 
+          species: 'Cat (Domestic Shorthair)', 
+          age: '2 yrs', 
+          chipId: '985141005521098', 
+          vet: 'Dr. Smith - Paws & Claws (021 345 6789)', 
+          diet: '1 scoop salmon wet food at 07:30 + dry kibble available', 
+          medication: 'None required', 
+          notes: 'Indoor cat. Litter box cleaned daily in laundry room.' 
+        }
+      ],
+      recipes: [
+        {
+          id: 'r1',
+          title: 'Creamy Garlic Chicken Pesto Pasta',
+          category: 'Dinner',
+          prepTime: '25 mins',
+          servings: 4,
+          ingredients: [
+            '500 g Fettuccine pasta',
+            '2 Chicken breasts (sliced)',
+            '125 ml Basil pesto',
+            '250 ml Heavy cream',
+            '60 g Grated Parmesan cheese',
+            '2 cloves Garlic (minced)',
+            '15 ml Olive oil'
+          ],
+          instructions: [
+            'Boil pasta in salted water until al dente.',
+            'Sauté chicken slices with garlic in olive oil until golden brown.',
+            'Reduce heat, add heavy cream and pesto; simmer for 3 minutes.',
+            'Toss cooked pasta with pesto cream sauce and sprinkle parmesan cheese.'
+          ]
+        },
+        {
+          id: 'r2',
+          title: 'Avocado & Poached Egg Toast',
+          category: 'Breakfast',
+          prepTime: '10 mins',
+          servings: 2,
+          ingredients: [
+            '2 slices Sourdough bread',
+            '1 ripe Avocado',
+            '2 Fresh eggs',
+            '15 ml Everything Bagel Seasoning',
+            '5 ml Lemon juice',
+            'Pinch of Red pepper flakes'
+          ],
+          instructions: [
+            'Toast sourdough bread until crispy.',
+            'Mash avocado with lemon juice, salt, and pepper.',
+            'Poach eggs in simmering water with vinegar for 3 minutes.',
+            'Spread avocado on toast, top with poached eggs and seasoning.'
+          ]
+        },
+        {
+          id: 'r3',
+          title: 'Sheet Pan Salmon & Asparagus',
+          category: 'Dinner',
+          prepTime: '20 mins',
+          servings: 2,
+          ingredients: [
+            '2 Salmon fillets',
+            '500 g Fresh asparagus',
+            '30 ml Olive oil',
+            '1 Lemon (sliced)',
+            '2 cloves Garlic (minced)',
+            'Fresh dill & black pepper'
+          ],
+          instructions: [
+            'Preheat oven to 200°C.',
+            'Arrange salmon and trimmed asparagus on a parchment-lined pan.',
+            'Drizzle with olive oil, minced garlic, lemon slices, and dill.',
+            'Bake for 12-15 minutes until salmon flakes easily.'
+          ]
+        },
+        {
+          id: 'r4',
+          title: 'Mediterranean Chickpea Salad',
+          category: 'Lunch',
+          prepTime: '15 mins',
+          servings: 3,
+          ingredients: [
+            '1 can Chickpeas (drained)',
+            '1 Cucumber (diced)',
+            '150 g Cherry tomatoes (halved)',
+            '100 g Feta cheese (crumbled)',
+            '50 g Kalamata olives',
+            '30 ml Extra virgin olive oil',
+            '15 ml Red wine vinegar'
+          ],
+          instructions: [
+            'Whisk olive oil, red wine vinegar, salt, and oregano in a small bowl.',
+            'Combine chickpeas, cucumber, tomatoes, and olives in a medium bowl.',
+            'Drizzle dressing over salad and gently fold in feta cheese.'
+          ]
+        }
+      ],
+      mealPlan: {
+        Monday: { breakfast: 'Avocado & Poached Egg Toast', lunch: 'Mediterranean Chickpea Salad', dinner: 'Creamy Garlic Chicken Pesto Pasta' },
+        Tuesday: { breakfast: 'Berry & Oatmeal Bowl', lunch: 'Leftover Pesto Pasta', dinner: 'Sheet Pan Salmon & Asparagus' },
+        Wednesday: { breakfast: 'Avocado & Poached Egg Toast', lunch: 'Mediterranean Chickpea Salad', dinner: 'Taco Wednesday' },
+        Thursday: { breakfast: 'Greek Yogurt & Honey', lunch: 'Turkey Avocado Wrap', dinner: 'Veggie Stir Fry' },
+        Friday: { breakfast: 'Berry & Oatmeal Bowl', lunch: 'Leftover Stir Fry', dinner: 'Homemade Pizza Night 🍕' },
+        Saturday: { breakfast: 'Fluffy Pancakes', lunch: 'Grilled Cheese & Tomato Soup', dinner: 'BBQ Burgers & Fries' },
+        Sunday: { breakfast: 'Scrambled Eggs & Toast', lunch: 'Sunday Roast Leftovers', dinner: 'Sheet Pan Salmon & Asparagus' }
+      },
+      groceries: [
+        { id: 'g1', name: 'Fresh Asparagus', quantity: '500 g', category: 'Produce', completed: false },
+        { id: 'g2', name: 'Avocados', quantity: '3 pcs', category: 'Produce', completed: false },
+        { id: 'g3', name: 'Heavy Cream', quantity: '500 ml', category: 'Dairy & Eggs', completed: true },
+        { id: 'g4', name: 'Parmesan Cheese', quantity: '1 block', category: 'Dairy & Eggs', completed: false },
+        { id: 'g5', name: 'Chicken Breasts', quantity: '1 kg', category: 'Meat & Seafood', completed: false },
+        { id: 'g6', name: 'Fettuccine Pasta', quantity: '1 box', category: 'Pantry', completed: true },
+        { id: 'g7', name: 'Paper Towels', quantity: '6 rolls', category: 'Household & Cleaning', completed: false },
+        { id: 'g8', name: 'Dishwasher Pods', quantity: '1 pack', category: 'Household & Cleaning', completed: false }
+      ],
+      inventory: [
+        { id: 'inv1', name: 'Fresh Milk', category: 'Dairy & Eggs', defaultQty: '2 L' },
+        { id: 'inv2', name: 'Free Range Eggs', category: 'Dairy & Eggs', defaultQty: '12 pack' },
+        { id: 'inv3', name: 'Sliced Sourdough / Wheat Bread', category: 'Bakery', defaultQty: '1 loaf' },
+        { id: 'inv4', name: 'Toilet Paper', category: 'Household & Cleaning', defaultQty: '9 rolls' },
+        { id: 'inv5', name: 'Dishwashing Liquid / Pods', category: 'Household & Cleaning', defaultQty: '1 pack' },
+        { id: 'inv6', name: 'Coffee Beans / Ground Coffee', category: 'Pantry', defaultQty: '250 g' },
+        { id: 'inv7', name: 'Extra Virgin Olive Oil', category: 'Pantry', defaultQty: '1 L' },
+        { id: 'inv8', name: 'Unsalted Butter', category: 'Dairy & Eggs', defaultQty: '500 g' },
+        { id: 'inv9', name: 'Heavy Duty Trash Bags', category: 'Household & Cleaning', defaultQty: '1 roll' },
+        { id: 'inv10', name: 'Basmati / Long Grain Rice', category: 'Pantry', defaultQty: '1 kg' }
+      ],
+      bills: [
+        { id: 'b1', name: 'Mortgage / Rent', category: 'Rent/Mortgage', amount: 21000.00, dueDay: 1, paid: true, provider: 'Oakwood Living' },
+        { id: 'b2', name: 'Electricity & Gas Utility', category: 'Utilities', amount: 1450.50, dueDay: 15, paid: true, provider: 'Power Grid Co.' },
+        { id: 'b3', name: 'Fiber Internet 1Gbps', category: 'Internet', amount: 799.99, dueDay: 20, paid: false, provider: 'FastNet Telecom' },
+        { id: 'b4', name: 'Water & Sewage', category: 'Utilities', amount: 620.30, dueDay: 25, paid: false, provider: 'City Water Dept' },
+        { id: 'b5', name: 'Auto & Home Insurance', category: 'Insurance', amount: 1850.00, dueDay: 28, paid: false, provider: 'Shield Security Ins.' },
+        { id: 'b6', name: 'Streaming Bundle (Netflix/Spotify)', category: 'Subscriptions', amount: 249.99, dueDay: 12, paid: true, provider: 'Media Services' }
+      ],
+      contacts: [
+        { id: 'ct1', name: 'Metro Plumbing Services', role: 'Plumbing Emergency', phone: '(021) 234-5678', email: 'service@metroplumbing.com', notes: '24/7 hotline - Priority Acct #9821' },
+        { id: 'ct2', name: 'BrightSpark Electrical', role: 'Electrician', phone: '(021) 876-5432', email: 'support@brightspark.com', notes: 'Master electrician Dave' },
+        { id: 'ct3', name: 'Paws & Claws Animal Hospital', role: 'Veterinarian', phone: '(021) 345-6789', email: 'care@pawsclaws.com', notes: 'Dr. Smith - Pet ID #4409' },
+        { id: 'ct4', name: 'Oakwood HOA Management', role: 'Property Manager', phone: '(021) 999-1122', email: 'hoa@oakwood.org', notes: 'Main Gate Code: #4092' }
+      ],
+      homeNotes: [
+        { id: 'hn1', title: 'WiFi & Network Specs', category: 'Tech', keyValues: { 'SSID': 'HomeHub_5G', 'Password': 'SuperSecretPassword2026!', 'Guest Network': 'HomeHub_Guest' }, notes: 'Router located in upstairs office closet.' },
+        { id: 'hn2', title: 'Trash & Recycling Schedule', category: 'Services', keyValues: { 'Trash Pickup': 'Tuesday Morning', 'Recycling': 'Alternate Tuesdays', 'Yard Waste': 'Friday Morning' }, notes: 'Place bins on curb after 7 PM night before.' },
+        { id: 'hn3', title: 'Utility Shutoffs & Specs', category: 'Maintenance', keyValues: { 'Main Water Shutoff': 'Basement South Wall', 'Electrical Panel': 'Garage East Wall', 'HVAC Filter Size': '40 x 65 x 2.5 cm (MERV 11)' }, notes: 'Change HVAC air filter every 60 days.' },
+        { id: 'hn4', title: 'Paint Colors & Finishes', category: 'Decor', keyValues: { 'Living Room': 'Sherwin Williams Repose Gray', 'Kitchen Accent': 'Navy Blue SW 6244', 'Trim & Doors': 'Pure White Satin' }, notes: 'Spare paint cans stored on shelf B in garage.' }
+      ]
+    };
+
+    // --- HELPER FUNCTIONS ---
+    function copyTextToClipboard(text) {
+      const fallbackCopy = (str) => {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = str;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-9999px";
+          textArea.style.top = "0";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        } catch (err) {
+          console.error('Fallback copy failed', err);
+        }
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function formatMoney(amount) {
+      return 'R ' + new Intl.NumberFormat('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    }
+
+    // --- VIEWS COMPONENTS ---
+    function DashboardView({ data, setData, setActiveTab, setChoreModal, setBillModal, showToast, currentUser }) {
+      const todayChores = useMemo(() => data.chores.filter(c => c.dueDate === 'Today' || c.frequency === 'Daily'), [data.chores]);
+      const completedToday = useMemo(() => todayChores.filter(c => c.completed).length, [todayChores]);
+      const todayProgress = todayChores.length > 0 ? Math.round((completedToday / todayChores.length) * 100) : 100;
+
+      const unpaidBills = useMemo(() => data.bills.filter(b => !b.paid), [data.bills]);
+      const totalUnpaid = useMemo(() => unpaidBills.reduce((acc, b) => acc + b.amount, 0), [unpaidBills]);
+
+      const activeGroceries = useMemo(() => data.groceries.filter(g => !g.completed), [data.groceries]);
+
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayName = days[new Date().getDay()] || 'Monday';
+      const todayMeal = data.mealPlan[todayName] || { breakfast: 'Not set', lunch: 'Not set', dinner: 'Not set' };
+
+      const toggleChore = (id) => {
+        const updated = data.chores.map(c => c.id === id ? { ...c, completed: !c.completed } : c);
+        setData({ ...data, chores: updated });
+        showToast('Chore status updated');
+      };
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-brand-950 text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-brand-500/10 blur-3xl pointer-events-none"></div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 text-xs font-semibold uppercase tracking-wider mb-2">
+                  Today is {new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'short', day: 'numeric' })}
+                </span>
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+                  Welcome back, {currentUser ? currentUser.name.split(' ')[0] : 'Home'} 👋
+                </h1>
+                <p className="text-slate-300 text-sm mt-1">Here is a quick snapshot of your household tasks, family profiles, finances, and meal plan.</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={() => setChoreModal({ open: true, item: null })}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs md:text-sm rounded-xl transition shadow-lg flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-plus"></i> Add Chore
+                </button>
+                <button 
+                  onClick={() => setBillModal({ open: true, item: null })}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs md:text-sm rounded-xl transition backdrop-blur flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-receipt"></i> Add Bill
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div 
+              onClick={() => setActiveTab('chores')} 
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Today's Chores</span>
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <i className="fa-solid fa-list-check"></i>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">{completedToday} / {todayChores.length}</span>
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{todayProgress}% done</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full mt-3 overflow-hidden">
+                <div className="bg-brand-500 h-full transition-all duration-300" style={{ width: `${todayProgress}%` }}></div>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setActiveTab('family')} 
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Family & Pets</span>
+                <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <i className="fa-solid fa-people-roof"></i>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">{(data.family || []).length} Members</span>
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{(data.pets || []).length} Pets</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-3 truncate">
+                {(data.family || []).length > 0 ? `Profiles & medical notes ready` : 'Add family members'}
+              </p>
+            </div>
+
+            <div 
+              onClick={() => setActiveTab('groceries')} 
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Shopping List</span>
+                <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <i className="fa-solid fa-cart-shopping"></i>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">{activeGroceries.length}</span>
+                <span className="text-xs font-semibold text-sky-600 dark:text-sky-400">Items needed</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-3 truncate">
+                {activeGroceries.length > 0 ? `Top: ${activeGroceries[0].name}` : 'Grocery list clear!'}
+              </p>
+            </div>
+
+            <div 
+              onClick={() => setActiveTab('bills')} 
+              className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm hover:shadow-md transition cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">Unpaid Bills</span>
+                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <i className="fa-solid fa-wallet"></i>
+                </div>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold text-slate-900 dark:text-white">{formatMoney(totalUnpaid)}</span>
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{unpaidBills.length} pending</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-3 truncate">
+                {unpaidBills.length > 0 ? `Next due: ${unpaidBills[0].name}` : 'All bills up to date!'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Today's Chore Checklist</h2>
+                    <p className="text-xs text-slate-500">Quick complete items right from your dashboard</p>
+                  </div>
+                  <button onClick={() => setActiveTab('chores')} className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                    View All Chores ({data.chores.length}) &rarr;
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {todayChores.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-4 text-center">No chores scheduled specifically for today! 🎉</p>
+                  ) : (
+                    todayChores.map(chore => (
+                      <div 
+                        key={chore.id} 
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition border border-slate-100 dark:border-slate-700/50"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <input 
+                            type="checkbox" 
+                            checked={chore.completed}
+                            onChange={() => toggleChore(chore.id)}
+                            className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                          />
+                          <span className={`text-sm font-medium ${chore.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                            {chore.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs px-2.5 py-0.5 rounded-md font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                            {chore.room}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                            chore.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                            chore.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>
+                            {chore.priority}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Today's Meal Schedule ({todayName})</h2>
+                  <button onClick={() => setActiveTab('recipes')} className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                    Manage Planner &rarr;
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30">
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block mb-1">
+                      <i className="fa-solid fa-sun mr-1"></i> Breakfast
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{todayMeal.breakfast || 'None'}</p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-900/30">
+                    <span className="text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider block mb-1">
+                      <i className="fa-solid fa-cloud-sun mr-1"></i> Lunch
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{todayMeal.lunch || 'None'}</p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30">
+                    <span className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block mb-1">
+                      <i className="fa-solid fa-moon mr-1"></i> Dinner
+                    </span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{todayMeal.dinner || 'None'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Upcoming Unpaid Bills</h2>
+                  <button onClick={() => setActiveTab('bills')} className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                    View All &rarr;
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {unpaidBills.length === 0 ? (
+                    <div className="text-center py-6 text-emerald-600 dark:text-emerald-400">
+                      <i className="fa-solid fa-circle-check text-2xl mb-1"></i>
+                      <p className="text-xs font-medium">All bills are paid!</p>
+                    </div>
+                  ) : (
+                    unpaidBills.slice(0, 4).map(bill => (
+                      <div key={bill.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{bill.name}</p>
+                          <p className="text-xs text-slate-400">Due {bill.dueDay}th of month</p>
+                        </div>
+                        <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{formatMoney(bill.amount)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Emergency Contacts</h2>
+                  <button onClick={() => setActiveTab('contacts')} className="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                    Contacts &rarr;
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {data.contacts.slice(0, 3).map(ct => (
+                    <div key={ct.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{ct.name}</p>
+                        <span className="text-[10px] text-slate-500">{ct.role}</span>
+                      </div>
+                      <a href={`tel:${ct.phone}`} className="px-2.5 py-1 text-xs bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 rounded-lg font-semibold hover:bg-brand-100 transition">
+                        <i className="fa-solid fa-phone mr-1"></i> Call
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function HomeSpecsView({ homeNotes, setHomeNotes, setNoteModal, showToast }) {
+      const deleteNote = (id) => {
+        setHomeNotes(homeNotes.filter(n => n.id !== id));
+        showToast('Note card deleted');
+      };
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Home Specs</h1>
+              <p className="text-slate-500 text-sm">Quick reference cheat sheet for WiFi passwords, paint codes, and utility specs.</p>
+            </div>
+            <button 
+              onClick={() => setNoteModal({ open: true, item: null })}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow flex items-center gap-1.5"
+            >
+              <i className="fa-solid fa-plus"></i> Add Note
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {homeNotes.map(note => (
+              <div key={note.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-0.5 rounded-md">
+                      {note.category}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => setNoteModal({ open: true, item: note })} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs">
+                        <i className="fa-solid fa-pen"></i>
+                      </button>
+                      <button onClick={() => deleteNote(note.id)} className="text-slate-400 hover:text-red-500 text-xs">
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">{note.title}</h3>
+
+                  <div className="space-y-2 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50 text-xs">
+                    {Object.entries(note.keyValues || {}).map(([key, val]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-500">{key}:</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{val}</span>
+                          <button 
+                            onClick={() => { copyTextToClipboard(val); showToast(`Copied "${val}"`); }}
+                            className="text-slate-400 hover:text-brand-600"
+                            title="Copy value"
+                          >
+                            <i className="fa-solid fa-copy text-[11px]"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {note.notes && (
+                    <p className="text-xs text-slate-400 mt-3 italic">{note.notes}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function ContactsView({ contacts, setContacts, setContactModal, showToast }) {
+      const deleteContact = (id) => {
+        setContacts(contacts.filter(c => c.id !== id));
+        showToast('Contact deleted');
+      };
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Emergency & Service Contacts</h1>
+              <p className="text-slate-500 text-sm">Important phone numbers for plumbers, electricians, vets, and HOA.</p>
+            </div>
+            <button 
+              onClick={() => setContactModal({ open: true, item: null })}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow flex items-center gap-1.5"
+            >
+              <i className="fa-solid fa-plus"></i> Add Contact
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {contacts.map(ct => (
+              <div key={ct.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {ct.role}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => setContactModal({ open: true, item: ct })} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs">
+                        <i className="fa-solid fa-pen"></i>
+                      </button>
+                      <button onClick={() => deleteContact(ct.id)} className="text-slate-400 hover:text-red-500 text-xs">
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">{ct.name}</h3>
+
+                  <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300 mt-3">
+                    <div className="flex items-center space-x-2">
+                      <i className="fa-solid fa-phone w-4 text-slate-400"></i>
+                      <a href={`tel:${ct.phone}`} className="font-semibold text-brand-600 dark:text-brand-400 hover:underline">{ct.phone}</a>
+                    </div>
+                    {ct.email && (
+                      <div className="flex items-center space-x-2">
+                        <i className="fa-solid fa-envelope w-4 text-slate-400"></i>
+                        <a href={`mailto:${ct.email}`} className="hover:underline">{ct.email}</a>
+                      </div>
+                    )}
+                  </div>
+
+                  {ct.notes && (
+                    <p className="text-xs text-slate-400 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/60">{ct.notes}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function ChoresView({ chores, setChores, setChoreModal, showToast }) {
+      const [filter, setFilter] = useState('All');
+      const [roomFilter, setRoomFilter] = useState('All');
+      const [searchQuery, setSearchQuery] = useState('');
+
+      const toggleChore = (id) => {
+        setChores(chores.map(c => c.id === id ? { ...c, completed: !c.completed } : c));
+        showToast('Chore status updated');
+      };
+
+      const deleteChore = (id) => {
+        setChores(chores.filter(c => c.id !== id));
+        showToast('Chore deleted');
+      };
+
+      const filteredChores = useMemo(() => {
+        return chores.filter(chore => {
+          if (filter === 'Due Today' && chore.dueDate !== 'Today') return false;
+          if (filter === 'High Priority' && chore.priority !== 'High') return false;
+          if (filter === 'Completed' && !chore.completed) return false;
+          if (filter === 'Pending' && chore.completed) return false;
+
+          if (roomFilter !== 'All' && chore.room !== roomFilter) return false;
+          if (searchQuery && !chore.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
+          return true;
+        });
+      }, [chores, filter, roomFilter, searchQuery]);
+
+      const rooms = ['All', 'Kitchen', 'Living Room', 'Bathroom', 'Bedroom', 'Yard', 'Garage', 'General'];
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Chores & Household Maintenance</h1>
+              <p className="text-slate-500 text-sm">Keep your home spotless and maintain recurring tasks efficiently.</p>
+            </div>
+            <button 
+              onClick={() => setChoreModal({ open: true, item: null })}
+              className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm rounded-xl transition shadow flex items-center justify-center gap-2"
+            >
+              <i className="fa-solid fa-plus"></i> Add New Task
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+              {['All', 'Pending', 'Due Today', 'High Priority', 'Completed'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition ${
+                    filter === f 
+                      ? 'bg-brand-600 text-white shadow-sm' 
+                      : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center space-x-3 w-full md:w-auto">
+              <select 
+                value={roomFilter} 
+                onChange={(e) => setRoomFilter(e.target.value)}
+                className="px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+              >
+                {rooms.map(r => (
+                  <option key={r} value={r}>Room: {r}</option>
+                ))}
+              </select>
+
+              <div className="relative flex-1 md:w-56">
+                <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input 
+                  type="text" 
+                  placeholder="Search tasks..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredChores.length === 0 ? (
+              <div className="col-span-full bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                <i className="fa-solid fa-check-double text-3xl text-slate-300 mb-2"></i>
+                <p className="text-slate-500 font-medium text-sm">No tasks match your current filters.</p>
+              </div>
+            ) : (
+              filteredChores.map(chore => (
+                <div 
+                  key={chore.id} 
+                  className={`p-4 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-800 flex flex-col justify-between ${
+                    chore.completed ? 'opacity-60 border-slate-200 dark:border-slate-800' : 'border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {chore.room}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        chore.priority === 'High' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                        chore.priority === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                        {chore.priority}
+                      </span>
+                    </div>
+
+                    <h3 className={`text-sm font-bold mt-1 ${chore.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                      {chore.title}
+                    </h3>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+                    <div className="text-xs text-slate-400 space-x-2">
+                      <span><i className="fa-solid fa-repeat mr-1"></i>{chore.frequency}</span>
+                      <span>•</span>
+                      <span>{chore.dueDate}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => toggleChore(chore.id)}
+                        className={`p-1.5 rounded-lg text-xs font-semibold transition ${
+                          chore.completed 
+                            ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
+                            : 'bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 hover:bg-brand-100'
+                        }`}
+                        title={chore.completed ? 'Mark pending' : 'Mark complete'}
+                      >
+                        <i className={`fa-solid ${chore.completed ? 'fa-rotate-left' : 'fa-check'}`}></i>
+                      </button>
+                      <button 
+                        onClick={() => setChoreModal({ open: true, item: chore })}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
+                      >
+                        <i className="fa-solid fa-pen"></i>
+                      </button>
+                      <button 
+                        onClick={() => deleteChore(chore.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 text-xs"
+                      >
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function RecipesView({ recipes, setRecipes, mealPlan, setMealPlan, setRecipeModal, setRecipeDetailModal, handleAddIngredientsToGroceries, showToast }) {
+      const [subTab, setSubTab] = useState('binder');
+      const [categoryFilter, setCategoryFilter] = useState('All');
+      const [searchQuery, setSearchQuery] = useState('');
+
+      const categories = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'];
+
+      const filteredRecipes = useMemo(() => {
+        return recipes.filter(r => {
+          if (categoryFilter !== 'All' && r.category !== categoryFilter) return false;
+          if (searchQuery && !r.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+          return true;
+        });
+      }, [recipes, categoryFilter, searchQuery]);
+
+      const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+      const updateMealPlan = (day, mealType, value) => {
+        const updated = { ...mealPlan, [day]: { ...mealPlan[day], [mealType]: value } };
+        setMealPlan(updated);
+        showToast(`Updated ${day}'s ${mealType}`);
+      };
+
+      const deleteRecipe = (id) => {
+        setRecipes(recipes.filter(r => r.id !== id));
+        showToast('Recipe deleted');
+      };
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Recipe Binder & Meal Planner</h1>
+              <p className="text-slate-500 text-sm">Save favorite family recipes and structure your weekly dinners.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-xl flex">
+                <button 
+                  onClick={() => setSubTab('binder')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'binder' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-book-open mr-1.5"></i> Recipe Book
+                </button>
+                <button 
+                  onClick={() => setSubTab('planner')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'planner' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-calendar-days mr-1.5"></i> Weekly Plan
+                </button>
+              </div>
+
+              {subTab === 'binder' && (
+                <button 
+                  onClick={() => setRecipeModal({ open: true, item: null })}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-plus"></i> New Recipe
+                </button>
+              )}
+            </div>
+          </div>
+
+          {subTab === 'binder' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition ${
+                        categoryFilter === cat 
+                          ? 'bg-brand-600 text-white shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full md:w-64">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <input 
+                    type="text" 
+                    placeholder="Search recipes or ingredients..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecipes.length === 0 ? (
+                  <div className="col-span-full bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                    <i className="fa-solid fa-utensils text-3xl text-slate-300 mb-2"></i>
+                    <p className="text-slate-500 font-medium text-sm">No recipes found matching criteria.</p>
+                  </div>
+                ) : (
+                  filteredRecipes.map(recipe => (
+                    <div 
+                      key={recipe.id}
+                      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm overflow-hidden hover:shadow-md transition flex flex-col justify-between"
+                    >
+                      <div className="p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            {recipe.category}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            <i className="fa-solid fa-clock mr-1"></i>{recipe.prepTime}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2 leading-snug">
+                          {recipe.title}
+                        </h3>
+
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                          Ingredients: {recipe.ingredients.join(', ')}
+                        </p>
+                      </div>
+
+                      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+                        <button 
+                          onClick={() => setRecipeDetailModal({ open: true, recipe })}
+                          className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                        >
+                          View Recipe &rarr;
+                        </button>
+
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            onClick={() => handleAddIngredientsToGroceries(recipe)}
+                            className="p-1.5 text-slate-400 hover:text-brand-600 text-xs"
+                            title="Add ingredients to grocery list"
+                          >
+                            <i className="fa-solid fa-cart-plus"></i>
+                          </button>
+                          <button 
+                            onClick={() => setRecipeModal({ open: true, item: recipe })}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
+                          >
+                            <i className="fa-solid fa-pen"></i>
+                          </button>
+                          <button 
+                            onClick={() => deleteRecipe(recipe.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 text-xs"
+                          >
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {subTab === 'planner' && (
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase">Weekly Dinner & Meal Schedule</span>
+                <button 
+                  onClick={() => {
+                    let count = 0;
+                    Object.values(mealPlan).forEach(day => {
+                      ['breakfast', 'lunch', 'dinner'].forEach(m => {
+                        const title = day[m];
+                        const found = recipes.find(r => r.title.toLowerCase() === title.toLowerCase());
+                        if (found) {
+                          handleAddIngredientsToGroceries(found);
+                          count++;
+                        }
+                      });
+                    });
+                    if (count === 0) showToast('No saved recipes detected in week plan to export.');
+                  }}
+                  className="px-3 py-1.5 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 text-xs font-semibold rounded-xl hover:bg-brand-100 transition"
+                >
+                  <i className="fa-solid fa-cart-arrow-down mr-1"></i> Add Planned Meals to Groceries
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
+                {daysOfWeek.map(day => {
+                  const plan = mealPlan[day] || { breakfast: '', lunch: '', dinner: '' };
+                  return (
+                    <div key={day} className="bg-white dark:bg-slate-800 rounded-2xl p-3 border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                      <div className="border-b border-slate-100 dark:border-slate-700 pb-2 mb-2 text-center">
+                        <span className="font-extrabold text-xs uppercase text-brand-600 dark:text-brand-400">{day}</span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Breakfast</label>
+                          <input 
+                            type="text" 
+                            value={plan.breakfast}
+                            onChange={(e) => updateMealPlan(day, 'breakfast', e.target.value)}
+                            placeholder="Meal..."
+                            className="w-full p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Lunch</label>
+                          <input 
+                            type="text" 
+                            value={plan.lunch}
+                            onChange={(e) => updateMealPlan(day, 'lunch', e.target.value)}
+                            placeholder="Meal..."
+                            className="w-full p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Dinner</label>
+                          <input 
+                            type="text" 
+                            value={plan.dinner}
+                            onChange={(e) => updateMealPlan(day, 'dinner', e.target.value)}
+                            placeholder="Meal..."
+                            className="w-full p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs font-semibold text-brand-700 dark:text-brand-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function GroceryView({ groceries, setGroceries, inventory, setInventory, showToast }) {
+      const [subTab, setSubTab] = useState('shopping');
+      
+      const [newItemName, setNewItemName] = useState('');
+      const [newItemQty, setNewItemQty] = useState('1');
+      const [newItemCat, setNewItemCat] = useState('Produce');
+
+      const [masterName, setMasterName] = useState('');
+      const [masterQty, setMasterQty] = useState('1');
+      const [masterCat, setMasterCat] = useState('Produce');
+      const [masterSearch, setMasterSearch] = useState('');
+      const [masterCatFilter, setMasterCatFilter] = useState('All');
+
+      const categories = ['Produce', 'Dairy & Eggs', 'Bakery', 'Meat & Seafood', 'Pantry', 'Household & Cleaning', 'Personal Care', 'Other'];
+
+      const handleAddShoppingItem = (e) => {
+        e.preventDefault();
+        if (!newItemName.trim()) return;
+
+        const item = {
+          id: 'g_' + Date.now(),
+          name: newItemName.trim(),
+          quantity: newItemQty || '1',
+          category: newItemCat,
+          completed: false
+        };
+
+        setGroceries([item, ...groceries]);
+        setNewItemName('');
+        showToast(`Added ${item.name} to active list`);
+      };
+
+      const handleAddMasterItem = (e) => {
+        e.preventDefault();
+        if (!masterName.trim()) return;
+
+        const masterItem = {
+          id: 'inv_' + Date.now(),
+          name: masterName.trim(),
+          defaultQty: masterQty || '1',
+          category: masterCat
+        };
+
+        setInventory([masterItem, ...inventory]);
+        setMasterName('');
+        showToast(`Saved "${masterItem.name}" to Master Inventory`);
+      };
+
+      const handleAddInventoryToShopping = (invItem) => {
+        const existingUncompleted = groceries.find(
+          g => g.name.toLowerCase() === invItem.name.toLowerCase() && !g.completed
+        );
+
+        if (existingUncompleted) {
+          showToast(`"${invItem.name}" is already on your active shopping list!`);
+          return;
+        }
+
+        const newGrocery = {
+          id: 'g_' + Date.now() + Math.random().toString(36).substr(2, 4),
+          name: invItem.name,
+          quantity: invItem.defaultQty || '1',
+          category: invItem.category || 'Other',
+          completed: false
+        };
+
+        setGroceries([newGrocery, ...groceries]);
+        showToast(`Added "${invItem.name}" to Grocery List`);
+      };
+
+      const deleteMasterItem = (id) => {
+        setInventory(inventory.filter(inv => inv.id !== id));
+        showToast('Removed item from Master Inventory');
+      };
+
+      const toggleItem = (id) => {
+        setGroceries(groceries.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
+      };
+
+      const deleteShoppingItem = (id) => {
+        setGroceries(groceries.filter(g => g.id !== id));
+      };
+
+      const clearCompleted = () => {
+        setGroceries(groceries.filter(g => !g.completed));
+        showToast('Cleared completed items');
+      };
+
+      const totalCount = groceries.length;
+      const completedCount = groceries.filter(g => g.completed).length;
+      const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      const filteredInventory = useMemo(() => {
+        return (inventory || []).filter(inv => {
+          if (masterCatFilter !== 'All' && inv.category !== masterCatFilter) return false;
+          if (masterSearch && !inv.name.toLowerCase().includes(masterSearch.toLowerCase())) return false;
+          return true;
+        });
+      }, [inventory, masterCatFilter, masterSearch]);
+
+      return (
+        <div className="space-y-6 max-w-5xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Grocery & Household Inventory</h1>
+              <p className="text-slate-500 text-sm">Manage active shopping trips and permanent household staples.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-xl flex">
+                <button 
+                  onClick={() => setSubTab('shopping')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'shopping' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-cart-shopping mr-1.5"></i> Active List ({groceries.filter(g => !g.completed).length})
+                </button>
+                <button 
+                  onClick={() => setSubTab('inventory')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'inventory' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-boxes-stacked mr-1.5"></i> Master Inventory ({(inventory || []).length})
+                </button>
+              </div>
+
+              {subTab === 'shopping' && completedCount > 0 && (
+                <button 
+                  onClick={clearCompleted}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 rounded-xl transition"
+                >
+                  <i className="fa-solid fa-trash mr-1"></i> Clear Done
+                </button>
+              )}
+            </div>
+          </div>
+
+          {subTab === 'shopping' && (
+            <div className="space-y-6">
+              <form onSubmit={handleAddShoppingItem} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row gap-3">
+                <input 
+                  type="text" 
+                  placeholder="Add item for this trip (e.g., Whole Milk)..."
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="flex-1 px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <input 
+                  type="text" 
+                  placeholder="Qty (e.g. 2 L)"
+                  value={newItemQty}
+                  onChange={(e) => setNewItemQty(e.target.value)}
+                  className="w-full md:w-32 px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none"
+                />
+                <select 
+                  value={newItemCat}
+                  onChange={(e) => setNewItemCat(e.target.value)}
+                  className="px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm rounded-xl transition shadow"
+                >
+                  Add Item
+                </button>
+              </form>
+
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">
+                  <span>Shopping Completion</span>
+                  <span>{completedCount} of {totalCount} items ({progressPercent}%)</span>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-brand-500 h-full transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {groceries.length === 0 ? (
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                    <i className="fa-solid fa-basket-shopping text-3xl text-slate-300 mb-2"></i>
+                    <p className="text-slate-500 font-medium text-sm">Your shopping list is empty.</p>
+                    <button 
+                      onClick={() => setSubTab('inventory')}
+                      className="mt-3 px-4 py-2 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 font-semibold text-xs rounded-xl hover:bg-brand-100 transition"
+                    >
+                      Browse Master Household Inventory &rarr;
+                    </button>
+                  </div>
+                ) : (
+                  categories.map(cat => {
+                    const catItems = groceries.filter(g => g.category === cat);
+                    if (catItems.length === 0) return null;
+
+                    return (
+                      <div key={cat} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                        <div className="bg-slate-50 dark:bg-slate-900/60 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            {cat} ({catItems.length})
+                          </span>
+                        </div>
+
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {catItems.map(item => (
+                            <div 
+                              key={item.id}
+                              onClick={() => toggleItem(item.id)}
+                              className="px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/40 transition cursor-pointer"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={item.completed}
+                                  onChange={() => {}}
+                                  className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-600"
+                                />
+                                <span className={`text-sm font-medium ${item.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                                  {item.name}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center space-x-3">
+                                <span className="text-xs text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700">
+                                  {item.quantity}
+                                </span>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); deleteShoppingItem(item.id); }}
+                                  className="text-slate-300 hover:text-red-500 text-xs p-1"
+                                >
+                                  <i className="fa-solid fa-xmark"></i>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {subTab === 'inventory' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Add Permanent Household Item</h3>
+                <form onSubmit={handleAddMasterItem} className="flex flex-col md:flex-row gap-3">
+                  <input 
+                    type="text" 
+                    placeholder="Staple name (e.g., Dishwashing Liquid, Eggs)..."
+                    value={masterName}
+                    onChange={(e) => setMasterName(e.target.value)}
+                    className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="Default Qty (e.g., 1 pack)"
+                    value={masterQty}
+                    onChange={(e) => setMasterQty(e.target.value)}
+                    className="w-full md:w-36 px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  />
+                  <select 
+                    value={masterCat}
+                    onChange={(e) => setMasterCat(e.target.value)}
+                    className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  >
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-plus"></i> Save to Master List
+                  </button>
+                </form>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+                  {['All', ...categories].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setMasterCatFilter(cat)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
+                        masterCatFilter === cat 
+                          ? 'bg-brand-600 text-white shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full md:w-56">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <input 
+                    type="text" 
+                    placeholder="Search master items..." 
+                    value={masterSearch}
+                    onChange={(e) => setMasterSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredInventory.length === 0 ? (
+                  <div className="col-span-full bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                    <p className="text-slate-500 font-medium text-sm">No items found in master inventory.</p>
+                  </div>
+                ) : (
+                  filteredInventory.map(item => (
+                    <div 
+                      key={item.id}
+                      className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                            {item.category}
+                          </span>
+                          <button 
+                            onClick={() => deleteMasterItem(item.id)}
+                            className="text-slate-300 hover:text-red-500 text-xs p-1"
+                            title="Delete from master list"
+                          >
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">Default Qty: {item.defaultQty}</p>
+                      </div>
+
+                      <button 
+                        onClick={() => handleAddInventoryToShopping(item)}
+                        className="mt-4 w-full py-2 bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-600 hover:text-white text-brand-700 dark:text-brand-400 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                      >
+                        <i className="fa-solid fa-plus"></i> Add to Grocery List
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function FamilyView({ family, setFamily, pets, setPets, setMemberModal, setPetModal, showToast }) {
+      const [subTab, setSubTab] = useState('members');
+
+      const deleteMember = (id) => {
+        setFamily(family.filter(m => m.id !== id));
+        showToast('Family member profile removed');
+      };
+
+      const deletePet = (id) => {
+        setPets(pets.filter(p => p.id !== id));
+        showToast('Pet profile removed');
+      };
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Family Members & Pet Profiles</h1>
+              <p className="text-slate-500 text-sm">Centralized records for clothing sizes, medical notes, pet diets, and microchip IDs.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <div className="bg-slate-200 dark:bg-slate-800 p-1 rounded-xl flex">
+                <button 
+                  onClick={() => setSubTab('members')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'members' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-user-group mr-1.5"></i> Members ({(family || []).length})
+                </button>
+                <button 
+                  onClick={() => setSubTab('pets')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${subTab === 'pets' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  <i className="fa-solid fa-paw mr-1.5"></i> Pets ({(pets || []).length})
+                </button>
+              </div>
+
+              {subTab === 'members' ? (
+                <button 
+                  onClick={() => setMemberModal({ open: true, item: null })}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-plus"></i> Add Member
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setPetModal({ open: true, item: null })}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow flex items-center gap-1.5"
+                >
+                  <i className="fa-solid fa-plus"></i> Add Pet
+                </button>
+              )}
+            </div>
+          </div>
+
+          {subTab === 'members' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(family || []).length === 0 ? (
+                <div className="col-span-full bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                  <i className="fa-solid fa-users text-3xl text-slate-300 mb-2"></i>
+                  <p className="text-slate-500 font-medium text-sm">No family members registered yet.</p>
+                </div>
+              ) : (
+                family.map(m => (
+                  <div key={m.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2.5 py-0.5 rounded-md">
+                          {m.relation}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <button onClick={() => setMemberModal({ open: true, item: m })} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs">
+                            <i className="fa-solid fa-pen"></i>
+                          </button>
+                          <button onClick={() => deleteMember(m.id)} className="text-slate-400 hover:text-red-500 text-xs">
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">{m.name}</h3>
+
+                      <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                          <span className="text-slate-400 font-semibold"><i className="fa-solid fa-lock mr-1.5"></i>Login Security:</span>
+                          <span className={`font-bold ${m.pin ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                            {m.pin ? '🔐 PIN Protected' : '🔓 No PIN (Instant Login)'}
+                          </span>
+                        </div>
+
+                        {m.birthdate && (
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                            <span className="text-slate-400 font-semibold"><i className="fa-solid fa-cake-candles mr-1.5"></i>Birthdate:</span>
+                            <span className="font-bold">{m.birthdate}</span>
+                          </div>
+                        )}
+
+                        {m.bloodType && (
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                            <span className="text-slate-400 font-semibold"><i className="fa-solid fa-droplet mr-1.5 text-red-500"></i>Blood Type:</span>
+                            <span className="font-extrabold text-red-600 dark:text-red-400">{m.bloodType}</span>
+                          </div>
+                        )}
+
+                        {m.clothingSizes && (
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 space-y-1">
+                            <span className="text-slate-400 font-semibold block"><i className="fa-solid fa-shirt mr-1.5"></i>Clothing & Shoe Sizes:</span>
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{m.clothingSizes}</p>
+                          </div>
+                        )}
+
+                        {m.medicalNotes && (
+                          <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 text-red-900 dark:text-red-300">
+                            <span className="font-bold block mb-0.5"><i className="fa-solid fa-notes-medical mr-1 text-red-600"></i> Medical & Allergies:</span>
+                            <p className="text-xs leading-relaxed">{m.medicalNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {subTab === 'pets' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(pets || []).length === 0 ? (
+                <div className="col-span-full bg-white dark:bg-slate-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-slate-700">
+                  <i className="fa-solid fa-paw text-3xl text-slate-300 mb-2"></i>
+                  <p className="text-slate-500 font-medium text-sm">No pets registered yet.</p>
+                </div>
+              ) : (
+                pets.map(p => (
+                  <div key={p.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-md">
+                          {p.species}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <button onClick={() => setPetModal({ open: true, item: p })} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs">
+                            <i className="fa-solid fa-pen"></i>
+                          </button>
+                          <button onClick={() => deletePet(p.id)} className="text-slate-400 hover:text-red-500 text-xs">
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
+                          <i className="fa-solid fa-paw"></i>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{p.name}</h3>
+                          <span className="text-xs text-slate-400">{p.age || 'Age unlisted'}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                        {p.chipId && (
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                            <span className="text-slate-400 font-semibold"><i className="fa-solid fa-barcode mr-1.5"></i>Microchip ID:</span>
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{p.chipId}</span>
+                              <button 
+                                onClick={() => { copyTextToClipboard(p.chipId); showToast(`Copied chip ID "${p.chipId}"`); }}
+                                className="text-slate-400 hover:text-brand-600 p-0.5"
+                                title="Copy Microchip ID"
+                              >
+                                <i className="fa-solid fa-copy text-[11px]"></i>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {p.vet && (
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 space-y-0.5">
+                            <span className="text-slate-400 font-semibold block"><i className="fa-solid fa-stethoscope mr-1.5 text-brand-600"></i>Veterinarian:</span>
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{p.vet}</p>
+                          </div>
+                        )}
+
+                        {p.diet && (
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 space-y-0.5">
+                            <span className="text-slate-400 font-semibold block"><i className="fa-solid fa-bowl-food mr-1.5 text-amber-600"></i>Diet & Feeding:</span>
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{p.diet}</p>
+                          </div>
+                        )}
+
+                        {p.medication && (
+                          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 space-y-0.5">
+                            <span className="text-slate-400 font-semibold block"><i className="fa-solid fa-pills mr-1.5 text-indigo-500"></i>Medications & Vaccines:</span>
+                            <p className="font-medium text-slate-800 dark:text-slate-200">{p.medication}</p>
+                          </div>
+                        )}
+
+                        {p.notes && (
+                          <p className="text-xs text-slate-400 italic pt-1">{p.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function BillsView({ bills, setBills, setBillModal, showToast }) {
+      const togglePaid = (id) => {
+        setBills(bills.map(b => b.id === id ? { ...b, paid: !b.paid } : b));
+        showToast('Bill status updated');
+      };
+
+      const deleteBill = (id) => {
+        setBills(bills.filter(b => b.id !== id));
+        showToast('Bill removed');
+      };
+
+      const totalMonthly = useMemo(() => bills.reduce((acc, b) => acc + b.amount, 0), [bills]);
+      const totalPaid = useMemo(() => bills.filter(b => b.paid).reduce((acc, b) => acc + b.amount, 0), [bills]);
+      const totalUnpaid = totalMonthly - totalPaid;
+
+      return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Recurring Bills & Subscriptions</h1>
+              <p className="text-slate-500 text-sm">Monitor monthly cash flow and mark bills paid each cycle.</p>
+            </div>
+            <button 
+              onClick={() => setBillModal({ open: true, item: null })}
+              className="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm rounded-xl transition shadow flex items-center gap-2"
+            >
+              <i className="fa-solid fa-plus"></i> Add New Bill
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <span className="text-xs font-bold uppercase text-slate-400">Total Monthly Bills</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{formatMoney(totalMonthly)}</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <span className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">Total Paid This Month</span>
+              <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">{formatMoney(totalPaid)}</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <span className="text-xs font-bold uppercase text-amber-600 dark:text-amber-400">Remaining Due</span>
+              <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">{formatMoney(totalUnpaid)}</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-6 py-3.5">Provider / Bill Name</th>
+                    <th className="px-6 py-3.5">Category</th>
+                    <th className="px-6 py-3.5">Due Date</th>
+                    <th className="px-6 py-3.5">Amount</th>
+                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                  {bills.map(bill => (
+                    <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                        {bill.name}
+                        <span className="block text-xs font-normal text-slate-400">{bill.provider}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          {bill.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                        {bill.dueDay}th of month
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                        {formatMoney(bill.amount)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                          bill.paid 
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          <i className={`fa-solid ${bill.paid ? 'fa-circle-check' : 'fa-clock'}`}></i>
+                          {bill.paid ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <button 
+                          onClick={() => togglePaid(bill.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                            bill.paid 
+                              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300' 
+                              : 'bg-brand-600 text-white hover:bg-brand-500'
+                          }`}
+                        >
+                          {bill.paid ? 'Mark Unpaid' : 'Mark Paid'}
+                        </button>
+                        <button 
+                          onClick={() => setBillModal({ open: true, item: bill })}
+                          className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs"
+                        >
+                          <i className="fa-solid fa-pen"></i>
+                        </button>
+                        <button 
+                          onClick={() => deleteBill(bill.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 text-xs"
+                        >
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- MODALS ---
+    function SyncModal({ passcode, onSavePasscode, onClose, status, lastSyncedTime }) {
+      const [inputCode, setInputCode] = useState(passcode || '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSavePasscode(inputCode.trim());
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+                  <i className="fa-solid fa-cloud text-base"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Household Live Sync</h3>
+                  <p className="text-xs text-slate-500">Cloudflare D1 & Firebase Cloud Database</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Shared Household Passcode</label>
+                <input 
+                  type="text"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                  placeholder="e.g. smith-family-2026"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-semibold text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                />
+                <p className="text-slate-400 text-[11px] mt-1">
+                  Enter the exact same passcode on both your phone and your family members' phones to connect automatically.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-600 dark:text-slate-400">Sync Engine:</span>
+                  <span className={`font-bold px-2.5 py-0.5 rounded-full ${
+                    status === 'connected' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                    status === 'connecting' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' :
+                    'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  }`}>
+                    {status === 'connected' ? '⚡ Cloudflare D1 / Cloud Sync Active' : status === 'connecting' ? 'Connecting...' : 'Local Storage Only'}
+                  </span>
+                </div>
+                {lastSyncedTime && (
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>Last Synced:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{lastSyncedTime}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                {passcode && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setInputCode(''); onSavePasscode(''); onClose(); }}
+                    className="text-red-500 hover:underline font-semibold"
+                  >
+                    Disconnect Sync
+                  </button>
+                )}
+                <div className="flex space-x-2 ml-auto">
+                  <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl shadow">Save & Connect</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function ChoreModal({ item, onClose, onSave }) {
+      const [title, setTitle] = useState(item ? item.title : '');
+      const [room, setRoom] = useState(item ? item.room : 'Kitchen');
+      const [frequency, setFrequency] = useState(item ? item.frequency : 'Weekly');
+      const [priority, setPriority] = useState(item ? item.priority : 'Medium');
+      const [dueDate, setDueDate] = useState(item ? item.dueDate : 'Today');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        onSave({
+          ...(item || {}),
+          title: title.trim(),
+          room,
+          frequency,
+          priority,
+          dueDate,
+          completed: item ? item.completed : false
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Chore' : 'Add New Chore'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Task Title</label>
+                <input 
+                  type="text" required
+                  value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Clean stove top"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Room/Area</label>
+                  <select value={room} onChange={(e) => setRoom(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {['Kitchen', 'Living Room', 'Bathroom', 'Bedroom', 'Yard', 'Garage', 'General'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Priority</label>
+                  <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Frequency</label>
+                  <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Due Date</label>
+                  <input 
+                    type="text" 
+                    value={dueDate} 
+                    onChange={(e) => setDueDate(e.target.value)} 
+                    placeholder="Today, Tomorrow..." 
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" 
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Chore</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function MemberModal({ item, onClose, onSave }) {
+      const [name, setName] = useState(item ? item.name : '');
+      const [relation, setRelation] = useState(item ? item.relation : 'Son');
+      const [birthdate, setBirthdate] = useState(item ? item.birthdate : '');
+      const [bloodType, setBloodType] = useState(item ? item.bloodType : 'O+');
+      const [clothingSizes, setClothingSizes] = useState(item ? item.clothingSizes : '');
+      const [medicalNotes, setMedicalNotes] = useState(item ? item.medicalNotes : '');
+      const [pin, setPin] = useState(item ? item.pin || '' : '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave({
+          ...(item || {}),
+          name: name.trim(),
+          relation,
+          birthdate,
+          bloodType,
+          clothingSizes,
+          medicalNotes,
+          pin: pin.trim()
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Family Member' : 'Add Family Member'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Full Name</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sarah Miller" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Role / Relation</label>
+                  <select value={relation} onChange={(e) => setRelation(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {['Father', 'Mother', 'Son', 'Daughter', 'Grandparent', 'Partner', 'Relative', 'Other'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Blood Type</label>
+                  <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'Unknown'].map(bt => <option key={bt} value={bt}>{bt}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Birthdate</label>
+                <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Clothing & Shoe Sizes</label>
+                <input type="text" value={clothingSizes} onChange={(e) => setClothingSizes(e.target.value)} placeholder="e.g. Shirt: L, Shoes: UK 10, Pants: 34" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Medical Notes & Allergies</label>
+                <textarea rows="3" value={medicalNotes} onChange={(e) => setMedicalNotes(e.target.value)} placeholder="e.g. Penicillin allergy, EpiPen location..." className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Login Security PIN (Optional)</label>
+                <input type="password" maxLength="6" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Optional 4-6 digit PIN" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono" />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function PetModal({ item, onClose, onSave }) {
+      const [name, setName] = useState(item ? item.name : '');
+      const [species, setSpecies] = useState(item ? item.species : 'Dog');
+      const [age, setAge] = useState(item ? item.age : '');
+      const [chipId, setChipId] = useState(item ? item.chipId : '');
+      const [vet, setVet] = useState(item ? item.vet : '');
+      const [diet, setDiet] = useState(item ? item.diet : '');
+      const [medication, setMedication] = useState(item ? item.medication : '');
+      const [notes, setNotes] = useState(item ? item.notes : '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave({
+          ...(item || {}),
+          name: name.trim(),
+          species,
+          age,
+          chipId,
+          vet,
+          diet,
+          medication,
+          notes
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Pet Profile' : 'Add Pet Profile'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Pet Name</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Barnaby" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Species / Breed</label>
+                  <input type="text" value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="e.g. Dog (Golden Retriever)" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Age</label>
+                  <input type="text" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 4 yrs" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Microchip ID</label>
+                <input type="text" value={chipId} onChange={(e) => setChipId(e.target.value)} placeholder="e.g. 985141002384912" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Veterinarian & Phone</label>
+                <input type="text" value={vet} onChange={(e) => setVet(e.target.value)} placeholder="e.g. Dr. Smith - (021) 345-6789" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Diet & Feeding Schedule</label>
+                <input type="text" value={diet} onChange={(e) => setDiet(e.target.value)} placeholder="e.g. 2 cups dry kibble at 8am & 6pm" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Medications & Vaccines</label>
+                <input type="text" value={medication} onChange={(e) => setMedication(e.target.value)} placeholder="e.g. Monthly NexGard on 1st" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Additional Notes</label>
+                <textarea rows="2" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Vaccine due dates, behavior..." className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Pet Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function RecipeModal({ item, onClose, onSave }) {
+      const [title, setTitle] = useState(item ? item.title : '');
+      const [category, setCategory] = useState(item ? item.category : 'Dinner');
+      const [prepTime, setPrepTime] = useState(item ? item.prepTime : '20 mins');
+      const [ingredientsText, setIngredientsText] = useState(item ? item.ingredients.join('\n') : '');
+      const [instructionsText, setInstructionsText] = useState(item ? (Array.isArray(item.instructions) ? item.instructions.join('\n') : item.instructions) : '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+
+        const ings = ingredientsText.split('\n').filter(i => i.trim() !== '');
+        const insts = instructionsText.split('\n').filter(i => i.trim() !== '');
+
+        onSave({
+          ...(item || {}),
+          title: title.trim(),
+          category,
+          prepTime,
+          ingredients: ings,
+          instructions: insts
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Recipe' : 'Add Recipe'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Recipe Title</label>
+                <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Prep Time</label>
+                  <input type="text" value={prepTime} onChange={(e) => setPrepTime(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Ingredients (one per line)</label>
+                <textarea rows="4" value={ingredientsText} onChange={(e) => setIngredientsText(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Instructions (one step per line)</label>
+                <textarea rows="4" value={instructionsText} onChange={(e) => setInstructionsText(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Recipe</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function RecipeDetailModal({ recipe, onClose, onAddIngredients }) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                {recipe.category} • {recipe.prepTime}
+              </span>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><i className="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4">{recipe.title}</h2>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Ingredients</h4>
+                <ul className="space-y-1 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                  {recipe.ingredients.map((ing, i) => (
+                    <li key={i} className="flex items-center space-x-2 text-slate-800 dark:text-slate-200">
+                      <i className="fa-solid fa-circle-dot text-[8px] text-brand-500"></i>
+                      <span>{ing}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Instructions</h4>
+                <ol className="space-y-2 list-decimal list-inside text-slate-800 dark:text-slate-200 leading-relaxed">
+                  {(Array.isArray(recipe.instructions) ? recipe.instructions : [recipe.instructions]).map((step, idx) => (
+                    <li key={idx} className="pl-1">{step}</li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <button 
+                onClick={() => { onAddIngredients(); onClose(); }}
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs rounded-xl shadow flex items-center gap-2"
+              >
+                <i className="fa-solid fa-cart-plus"></i> Transfer Ingredients to Grocery List
+              </button>
+              <button onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold text-xs">Close</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function BillModal({ item, onClose, onSave }) {
+      const [name, setName] = useState(item ? item.name : '');
+      const [provider, setProvider] = useState(item ? item.provider : '');
+      const [category, setCategory] = useState(item ? item.category : 'Utilities');
+      const [amount, setAmount] = useState(item ? item.amount : '');
+      const [dueDay, setDueDay] = useState(item ? item.dueDay : 15);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim() || !amount) return;
+        onSave({
+          ...(item || {}),
+          name: name.trim(),
+          provider: provider.trim(),
+          category,
+          amount: parseFloat(amount),
+          dueDay: parseInt(dueDay, 10),
+          paid: item ? item.paid : false
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Bill' : 'Add Bill'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Bill / Provider Name</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Fiber Internet" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {['Utilities', 'Rent/Mortgage', 'Internet', 'Insurance', 'Subscriptions', 'Services'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Amount (R)</label>
+                  <input type="number" step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Due Day of Month (1-31)</label>
+                <input type="number" min="1" max="31" required value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Bill</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function ContactModal({ item, onClose, onSave }) {
+      const [name, setName] = useState(item ? item.name : '');
+      const [role, setRole] = useState(item ? item.role : '');
+      const [phone, setPhone] = useState(item ? item.phone : '');
+      const [email, setEmail] = useState(item ? item.email : '');
+      const [notes, setNotes] = useState(item ? item.notes : '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onSave({ ...(item || {}), name: name.trim(), role, phone, email, notes });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Contact' : 'Add Contact'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Contact / Business Name</label>
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Role / Speciality</label>
+                  <input type="text" value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Plumber" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Phone Number</label>
+                  <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+                </div>
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Email (optional)</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Account # or Notes</label>
+                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Contact</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function NoteModal({ item, onClose, onSave }) {
+      const [title, setTitle] = useState(item ? item.title : '');
+      const [category, setCategory] = useState(item ? item.category : 'Tech');
+      const [kvText, setKvText] = useState(() => {
+        if (!item || !item.keyValues) return 'SSID: MyNetwork\nPassword: MySecretPassword';
+        return Object.entries(item.keyValues).map(([k,v]) => `${k}: ${v}`).join('\n');
+      });
+      const [notes, setNotes] = useState(item ? item.notes : '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+
+        const keyValues = {};
+        kvText.split('\n').forEach(line => {
+          const parts = line.split(':');
+          if (parts.length >= 2) {
+            const k = parts[0].trim();
+            const v = parts.slice(1).join(':').trim();
+            if (k) keyValues[k] = v;
+          }
+        });
+
+        onSave({
+          ...(item || {}),
+          title: title.trim(),
+          category,
+          keyValues,
+          notes
+        });
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">{item ? 'Edit Home Note' : 'Add Home Note'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Card Title</label>
+                <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. WiFi & Network" className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+                <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Tech, Services, Maintenance..." className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Key Specs (Key: Value per line)</label>
+                <textarea rows="4" value={kvText} onChange={(e) => setKvText(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono" />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Additional Notes</label>
+                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              </div>
+              <div className="flex justify-end space-x-2 pt-3">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-brand-600 text-white font-semibold rounded-xl">Save Note Card</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function LoginView({ family, onSelectUser, setMemberModal, setSyncModalOpen, syncStatus, syncPasscode }) {
+      const [selectedMember, setSelectedMember] = useState(null);
+      const [pin, setPin] = useState('');
+      const [pinError, setPinError] = useState('');
+
+      const handleUserClick = (member) => {
+        if (member.pin) {
+          setSelectedMember(member);
+          setPin('');
+          setPinError('');
+        } else {
+          onSelectUser(member);
+        }
+      };
+
+      const handlePinSubmit = (e) => {
+        e.preventDefault();
+        if (selectedMember && selectedMember.pin && pin !== selectedMember.pin) {
+          setPinError('Incorrect PIN. Please try again.');
+          return;
+        }
+        onSelectUser(selectedMember);
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="max-w-md w-full bg-slate-800/90 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-8 shadow-2xl relative z-10 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 mx-auto flex items-center justify-center text-white text-2xl shadow-lg shadow-brand-500/30 mb-4">
+              <i className="fa-solid fa-house-user"></i>
+            </div>
+            
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Home Hub</h1>
+            <p className="text-slate-400 text-xs mt-1 mb-6">Who is logging in today?</p>
+
+            {selectedMember ? (
+              <form onSubmit={handlePinSubmit} className="space-y-4 text-left">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-700/50 border border-slate-600 mb-2">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-500 text-white font-bold flex items-center justify-center text-base">
+                      {selectedMember.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{selectedMember.name}</p>
+                      <span className="text-[11px] text-slate-400">{selectedMember.relation}</span>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedMember(null)} 
+                    className="text-xs text-brand-400 hover:underline font-semibold"
+                  >
+                    Change
+                  </button>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                      <i className="fa-solid fa-lock text-amber-400"></i> Enter Security PIN
+                    </label>
+                    <span className="text-[10px] text-slate-400">Sample PIN: 1234</span>
+                  </div>
+                  <input 
+                    type="password" 
+                    maxLength="6"
+                    value={pin}
+                    onChange={(e) => { setPin(e.target.value); setPinError(''); }}
+                    placeholder="• • • •"
+                    className="w-full text-center text-2xl tracking-widest p-3 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
+                    autoFocus
+                  />
+                  {pinError && <p className="text-red-400 text-xs mt-1 text-center font-medium">{pinError}</p>}
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm rounded-xl transition shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2"
+                >
+                  <i className="fa-solid fa-key"></i> Confirm Login &rarr;
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 max-h-72 overflow-y-auto pr-1">
+                  {(family || []).map(member => (
+                    <button
+                      key={member.id}
+                      onClick={() => handleUserClick(member)}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-700/40 hover:bg-slate-700/80 border border-slate-700/80 hover:border-brand-500/50 transition-all duration-200 group text-left"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-emerald-600 text-white font-extrabold flex items-center justify-center text-lg shadow-md group-hover:scale-105 transition-transform">
+                          {member.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white group-hover:text-brand-300 transition-colors">{member.name}</p>
+                          <span className="text-xs text-slate-400">{member.relation}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 text-slate-400 group-hover:text-white">
+                        {member.pin ? (
+                          <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-500/30">
+                            <i className="fa-solid fa-lock text-[10px]"></i> PIN Protected
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md">
+                            1-Click Login
+                          </span>
+                        )}
+                        <i className="fa-solid fa-chevron-right text-xs"></i>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-4 border-t border-slate-700/80 flex items-center justify-between text-xs">
+                  <button 
+                    onClick={() => setMemberModal({ open: true, item: null })}
+                    className="text-brand-400 hover:text-brand-300 font-semibold flex items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-user-plus"></i> Add Family Member
+                  </button>
+
+                  <button 
+                    onClick={() => setSyncModalOpen(true)}
+                    className="text-slate-400 hover:text-white flex items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-cloud text-brand-500"></i>
+                    <span>{syncPasscode ? `Sync: ${syncPasscode}` : 'Cloud Sync'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      const [data, setData] = useState(() => {
+        const saved = localStorage.getItem('home_hub_data_v2');
+        if (saved) {
+          try { return JSON.parse(saved); } catch (e) {}
+        }
+        return INITIAL_DATA;
+      });
+
+      const [currentUser, setCurrentUser] = useState(() => {
+        const saved = localStorage.getItem('home_hub_active_user');
+        if (saved) {
+          try { return JSON.parse(saved); } catch (e) {}
+        }
+        return null;
+      });
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [darkMode, setDarkMode] = useState(() => {
+        return localStorage.getItem('home_hub_theme') === 'dark' || 
+               (!('home_hub_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      });
+      const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      // --- HOUSEHOLD REAL-TIME SYNC STATE ---
+      const [syncPasscode, setSyncPasscode] = useState(() => localStorage.getItem('home_hub_sync_code') || '');
+      const [syncModalOpen, setSyncModalOpen] = useState(false);
+      const [syncStatus, setSyncStatus] = useState('local');
+      const [lastSyncedTime, setLastSyncedTime] = useState(null);
+
+      const isRemoteUpdateRef = useRef(false);
+
+      // Active Modals
+      const [choreModal, setChoreModal] = useState({ open: false, item: null });
+      const [recipeModal, setRecipeModal] = useState({ open: false, item: null });
+      const [recipeDetailModal, setRecipeDetailModal] = useState({ open: false, recipe: null });
+      const [billModal, setBillModal] = useState({ open: false, item: null });
+      const [contactModal, setContactModal] = useState({ open: false, item: null });
+      const [noteModal, setNoteModal] = useState({ open: false, item: null });
+      const [memberModal, setMemberModal] = useState({ open: false, item: null });
+      const [petModal, setPetModal] = useState({ open: false, item: null });
+      const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+      // Fetch updates from Cloudflare D1 API Function (/api/sync)
+      const fetchD1Sync = async (code) => {
+        if (!code) return;
+        try {
+          const res = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
+          if (res.ok) {
+            const result = await res.json();
+            if (result.exists && result.payload) {
+              isRemoteUpdateRef.current = true;
+              setData(result.payload);
+              setSyncStatus('connected');
+              setLastSyncedTime(new Date(result.updatedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            } else {
+              setSyncStatus('connected');
+            }
+          }
+        } catch (err) {
+          // Cloudflare D1 function not reached, fallback smoothly
+          console.log("Cloudflare D1 endpoint not available locally. Defaulting to storage.");
+        }
+      };
+
+      // Periodic Cloudflare D1 Poll
+      useEffect(() => {
+        if (!syncPasscode.trim()) {
+          setSyncStatus('local');
+          return;
+        }
+
+        setSyncStatus('connecting');
+        fetchD1Sync(syncPasscode);
+
+        const interval = setInterval(() => {
+          fetchD1Sync(syncPasscode);
+        }, 8000);
+
+        return () => clearInterval(interval);
+      }, [syncPasscode]);
+
+      // Push state to LocalStorage and Cloudflare D1 backend (/api/sync)
+      useEffect(() => {
+        localStorage.setItem('home_hub_data_v2', JSON.stringify(data));
+
+        if (isRemoteUpdateRef.current) {
+          isRemoteUpdateRef.current = false;
+          return;
+        }
+
+        if (syncPasscode.trim()) {
+          fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: syncPasscode.trim(), payload: data })
+          }).then(res => {
+            if (res.ok) {
+              setSyncStatus('connected');
+              setLastSyncedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            }
+          }).catch(() => {});
+        }
+      }, [data, syncPasscode]);
+
+      const handleSavePasscode = (code) => {
+        const trimmed = code.trim();
+        setSyncPasscode(trimmed);
+        localStorage.setItem('home_hub_sync_code', trimmed);
+        if (!trimmed) {
+          setSyncStatus('local');
+          showToast('Switched to Local Mode');
+        } else {
+          showToast(`Household passcode set to "${trimmed}". Connected to Cloud sync!`);
+          fetchD1Sync(trimmed);
+        }
+      };
+
+      useEffect(() => {
+        if (darkMode) {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('home_hub_theme', 'dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('home_hub_theme', 'light');
+        }
+      }, [darkMode]);
+
+      const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3200);
+      };
+
+      const handleResetData = () => {
+        setData(INITIAL_DATA);
+        setResetConfirmOpen(false);
+        showToast('All household data reset to sample state!');
+      };
+
+      const handleExportData = () => {
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute('href', jsonString);
+        downloadAnchor.setAttribute('download', `home_hub_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        showToast('Backup downloaded successfully!');
+      };
+
+      const handleImportData = (e) => {
+        const fileReader = new FileReader();
+        if (e.target.files && e.target.files[0]) {
+          fileReader.readAsText(e.target.files[0], "UTF-8");
+          fileReader.onload = (event) => {
+            try {
+              const parsed = JSON.parse(event.target.result);
+              if (parsed && parsed.chores && parsed.recipes) {
+                setData(parsed);
+                showToast('Household data imported successfully!');
+              } else {
+                showToast('Invalid backup file format.', 'error');
+              }
+            } catch (err) {
+              showToast('Failed to parse uploaded JSON.', 'error');
+            }
+          };
+        }
+      };
+
+      const handleAddIngredientsToGroceries = (recipe) => {
+        if (!recipe || !recipe.ingredients) return;
+        const newGroceries = [...data.groceries];
+        let addedCount = 0;
+
+        recipe.ingredients.forEach(ing => {
+          const cleanName = ing.trim();
+          if (cleanName) {
+            newGroceries.push({
+              id: 'g_' + Date.now() + Math.random().toString(36).substr(2, 4),
+              name: cleanName,
+              quantity: '1',
+              category: 'Pantry',
+              completed: false
+            });
+            addedCount++;
+          }
+        });
+
+        setData({ ...data, groceries: newGroceries });
+        showToast(`Added ${addedCount} ingredients from "${recipe.title}" to Grocery List!`);
+      };
+
+      const unpaidBills = useMemo(() => data.bills.filter(b => !b.paid), [data.bills]);
+      const pendingChoresCount = useMemo(() => data.chores.filter(c => !c.completed).length, [data.chores]);
+      const activeGroceryCount = useMemo(() => data.groceries.filter(g => !g.completed).length, [data.groceries]);
+      const familyPetsCount = useMemo(() => ((data.family || []).length + (data.pets || []).length), [data.family, data.pets]);
+
+      const navItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high' },
+        { id: 'chores', label: 'Chores', icon: 'fa-list-check', badge: pendingChoresCount },
+        { id: 'family', label: 'Family', icon: 'fa-people-roof', badge: familyPetsCount },
+        { id: 'recipes', label: 'Meal Planner', icon: 'fa-utensils' },
+        { id: 'groceries', label: 'Shopping', icon: 'fa-cart-shopping', badge: activeGroceryCount },
+        { id: 'bills', label: 'Bills', icon: 'fa-wallet', badge: unpaidBills.length },
+        { id: 'homeSpecs', label: 'Home Specs', icon: 'fa-house-user' },
+        { id: 'contacts', label: 'Contacts', icon: 'fa-address-book' },
+      ];
+
+      // --- LOGIN SCREEN IF NO USER SELECTED ---
+      if (!currentUser) {
+        return (
+          <React.Fragment>
+            <LoginView 
+              family={data.family || INITIAL_DATA.family}
+              onSelectUser={(u) => {
+                setCurrentUser(u);
+                localStorage.setItem('home_hub_active_user', JSON.stringify(u));
+                showToast(`Logged in as ${u.name}`);
+              }}
+              setMemberModal={setMemberModal}
+              setSyncModalOpen={setSyncModalOpen}
+              syncStatus={syncStatus}
+              syncPasscode={syncPasscode}
+            />
+
+            {toast && (
+              <div className={`fixed bottom-5 right-5 z-50 flex items-center space-x-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium transition-all transform duration-200 ${
+                toast.type === 'error' ? 'bg-red-600' : 'bg-slate-900 dark:bg-brand-600 border border-slate-700'
+              }`}>
+                <i className={`fa-solid ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check text-brand-400 dark:text-white'}`}></i>
+                <span>{toast.message}</span>
+              </div>
+            )}
+
+            {syncModalOpen && (
+              <SyncModal 
+                passcode={syncPasscode}
+                onSavePasscode={handleSavePasscode}
+                onClose={() => setSyncModalOpen(false)}
+                status={syncStatus}
+                lastSyncedTime={lastSyncedTime}
+              />
+            )}
+
+            {memberModal.open && (
+              <MemberModal 
+                item={memberModal.item}
+                onClose={() => setMemberModal({ open: false, item: null })}
+                onSave={(savedMember) => {
+                  let updated = [...(data.family || [])];
+                  if (memberModal.item) {
+                    updated = updated.map(m => m.id === savedMember.id ? savedMember : m);
+                    showToast('Family member profile updated');
+                  } else {
+                    updated.unshift({ ...savedMember, id: 'fm_' + Date.now() });
+                    showToast('New family member added');
+                  }
+                  setData({ ...data, family: updated });
+                  setMemberModal({ open: false, item: null });
+                }}
+              />
+            )}
+          </React.Fragment>
+        );
+      }
+
+      return (
+        <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
+          <aside className="hidden md:flex md:flex-col md:w-64 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 z-20">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                  <i className="fa-solid fa-house text-lg"></i>
+                </div>
+                <div>
+                  <h1 className="font-extrabold text-slate-900 dark:text-white tracking-tight leading-none text-lg">Home Hub</h1>
+                  <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">Household OS</span>
+                </div>
+              </div>
+            </div>
+
+            {currentUser && (
+              <div className="px-4 py-3 bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-brand-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                    {currentUser.name.charAt(0)}
+                  </div>
+                  <div className="truncate">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{currentUser.name}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{currentUser.relation}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setCurrentUser(null); localStorage.removeItem('home_hub_active_user'); }}
+                  className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition text-xs flex-shrink-0"
+                  title="Switch Profile / Logout"
+                >
+                  <i className="fa-solid fa-right-from-bracket"></i>
+                </button>
+              </div>
+            )}
+
+            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+              <button 
+                onClick={() => setSyncModalOpen(true)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+              >
+                <div className="flex items-center space-x-2 truncate pr-1">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${syncPasscode ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                  <span className="text-slate-700 dark:text-slate-200 truncate">
+                    {syncPasscode ? `Sync: ${syncPasscode}` : 'Set Cloud Sync Passcode'}
+                  </span>
+                </div>
+                <i className="fa-solid fa-cloud text-brand-600 dark:text-brand-400 flex-shrink-0"></i>
+              </button>
+            </div>
+
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {navItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
+                    activeTab === item.id 
+                      ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 font-semibold shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <i className={`fa-solid ${item.icon} w-5 text-center text-base ${activeTab === item.id ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`}></i>
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge > 0 && (
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
+                      activeTab === item.id 
+                        ? 'bg-brand-600 text-white' 
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between px-2 py-1">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Appearance</span>
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  title="Toggle Theme"
+                >
+                  <i className={`fa-solid ${darkMode ? 'fa-sun text-amber-400' : 'fa-moon text-indigo-600'}`}></i>
+                </button>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-slate-100 dark:border-slate-800/60 px-2">
+                <button onClick={handleExportData} className="hover:text-brand-600 transition flex items-center gap-1">
+                  <i className="fa-solid fa-download"></i> Backup
+                </button>
+                <label className="hover:text-brand-600 transition flex items-center gap-1 cursor-pointer">
+                  <i className="fa-solid fa-upload"></i> Restore
+                  <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                </label>
+                <button onClick={() => setResetConfirmOpen(true)} className="hover:text-red-500 transition flex items-center gap-1">
+                  <i className="fa-solid fa-rotate-left"></i> Reset
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header className="md:hidden bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white">
+                  <i className="fa-solid fa-house text-sm"></i>
+                </div>
+                <span className="font-bold text-slate-900 dark:text-white">Home Hub</span>
+                {currentUser && (
+                  <span className="text-xs bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-semibold px-2 py-0.5 rounded-full ml-1">
+                    {currentUser.name.split(' ')[0]}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-1">
+                {currentUser && (
+                  <button 
+                    onClick={() => { setCurrentUser(null); localStorage.removeItem('home_hub_active_user'); }}
+                    className="p-2 text-slate-500 hover:text-red-500 text-xs"
+                    title="Switch User / Logout"
+                  >
+                    <i className="fa-solid fa-right-from-bracket"></i>
+                  </button>
+                )}
+                <button 
+                  onClick={() => setSyncModalOpen(true)}
+                  className="p-2 text-slate-600 dark:text-slate-300 relative"
+                  title="Household Sync"
+                >
+                  <i className="fa-solid fa-cloud"></i>
+                  {syncPasscode && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500"></span>}
+                </button>
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="p-2 text-slate-600 dark:text-slate-300"
+                >
+                  <i className={`fa-solid ${darkMode ? 'fa-sun text-amber-400' : 'fa-moon'}`}></i>
+                </button>
+                <button 
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <i className={`fa-solid ${mobileMenuOpen ? 'fa-xmark' : 'fa-bars'} text-xl`}></i>
+                </button>
+              </div>
+            </header>
+
+            {mobileMenuOpen && (
+              <div className="md:hidden bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-4 space-y-1 z-30">
+                {navItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium ${
+                      activeTab === item.id ? 'bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <i className={`fa-solid ${item.icon}`}></i>
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge > 0 && (
+                      <span className="bg-brand-600 text-white text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
+                    )}
+                  </button>
+                ))}
+                <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800 flex justify-around text-xs text-slate-500">
+                  <button onClick={handleExportData}><i className="fa-solid fa-download"></i> Backup</button>
+                  <button onClick={() => setResetConfirmOpen(true)} className="text-red-500"><i className="fa-solid fa-rotate-left"></i> Reset</button>
+                </div>
+              </div>
+            )}
+
+            <main className="flex-1 overflow-y-auto p-4 md:p-8">
+              {activeTab === 'dashboard' && (
+                <DashboardView 
+                  data={data} 
+                  setData={setData}
+                  setActiveTab={setActiveTab}
+                  setChoreModal={setChoreModal}
+                  setBillModal={setBillModal}
+                  showToast={showToast}
+                  currentUser={currentUser}
+                />
+              )}
+
+              {activeTab === 'chores' && (
+                <ChoresView 
+                  chores={data.chores} 
+                  setChores={(newChores) => setData({ ...data, chores: newChores })}
+                  setChoreModal={setChoreModal}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'family' && (
+                <FamilyView 
+                  family={data.family || INITIAL_DATA.family}
+                  setFamily={(nf) => setData({ ...data, family: nf })}
+                  pets={data.pets || INITIAL_DATA.pets}
+                  setPets={(np) => setData({ ...data, pets: np })}
+                  setMemberModal={setMemberModal}
+                  setPetModal={setPetModal}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'recipes' && (
+                <RecipesView 
+                  recipes={data.recipes}
+                  setRecipes={(newRecipes) => setData({ ...data, recipes: newRecipes })}
+                  mealPlan={data.mealPlan}
+                  setMealPlan={(newPlan) => setData({ ...data, mealPlan: newPlan })}
+                  setRecipeModal={setRecipeModal}
+                  setRecipeDetailModal={setRecipeDetailModal}
+                  handleAddIngredientsToGroceries={handleAddIngredientsToGroceries}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'groceries' && (
+                <GroceryView 
+                  groceries={data.groceries}
+                  setGroceries={(newGroceries) => setData({ ...data, groceries: newGroceries })}
+                  inventory={data.inventory || INITIAL_DATA.inventory}
+                  setInventory={(newInventory) => setData({ ...data, inventory: newInventory })}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'bills' && (
+                <BillsView 
+                  bills={data.bills}
+                  setBills={(newBills) => setData({ ...data, bills: newBills })}
+                  setBillModal={setBillModal}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'homeSpecs' && (
+                <HomeSpecsView 
+                  homeNotes={data.homeNotes}
+                  setHomeNotes={(nh) => setData({ ...data, homeNotes: nh })}
+                  setNoteModal={setNoteModal}
+                  showToast={showToast}
+                />
+              )}
+
+              {activeTab === 'contacts' && (
+                <ContactsView 
+                  contacts={data.contacts}
+                  setContacts={(nc) => setData({ ...data, contacts: nc })}
+                  setContactModal={setContactModal}
+                  showToast={showToast}
+                />
+              )}
+            </main>
+          </div>
+
+          {toast && (
+            <div className={`fixed bottom-5 right-5 z-50 flex items-center space-x-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium transition-all transform duration-200 ${
+              toast.type === 'error' ? 'bg-red-600' : 'bg-slate-900 dark:bg-brand-600 border border-slate-700'
+            }`}>
+              <i className={`fa-solid ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check text-brand-400 dark:text-white'}`}></i>
+              <span>{toast.message}</span>
+            </div>
+          )}
+
+          {syncModalOpen && (
+            <SyncModal 
+              passcode={syncPasscode}
+              onSavePasscode={handleSavePasscode}
+              onClose={() => setSyncModalOpen(false)}
+              status={syncStatus}
+              lastSyncedTime={lastSyncedTime}
+            />
+          )}
+
+          {choreModal.open && (
+            <ChoreModal 
+              item={choreModal.item} 
+              onClose={() => setChoreModal({ open: false, item: null })}
+              onSave={(savedItem) => {
+                let updated = [...data.chores];
+                if (choreModal.item) {
+                  updated = updated.map(c => c.id === savedItem.id ? savedItem : c);
+                  showToast('Chore updated successfully');
+                } else {
+                  updated.unshift({ ...savedItem, id: 'c_' + Date.now() });
+                  showToast('New chore added');
+                }
+                setData({ ...data, chores: updated });
+                setChoreModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {memberModal.open && (
+            <MemberModal 
+              item={memberModal.item}
+              onClose={() => setMemberModal({ open: false, item: null })}
+              onSave={(savedMember) => {
+                let updated = [...(data.family || [])];
+                if (memberModal.item) {
+                  updated = updated.map(m => m.id === savedMember.id ? savedMember : m);
+                  showToast('Family member profile updated');
+                } else {
+                  updated.unshift({ ...savedMember, id: 'fm_' + Date.now() });
+                  showToast('New family member added');
+                }
+                setData({ ...data, family: updated });
+                setMemberModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {petModal.open && (
+            <PetModal 
+              item={petModal.item}
+              onClose={() => setPetModal({ open: false, item: null })}
+              onSave={(savedPet) => {
+                let updated = [...(data.pets || [])];
+                if (petModal.item) {
+                  updated = updated.map(p => p.id === savedPet.id ? savedPet : p);
+                  showToast('Pet profile updated');
+                } else {
+                  updated.unshift({ ...savedPet, id: 'p_' + Date.now() });
+                  showToast('New pet profile added');
+                }
+                setData({ ...data, pets: updated });
+                setPetModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {recipeModal.open && (
+            <RecipeModal 
+              item={recipeModal.item}
+              onClose={() => setRecipeModal({ open: false, item: null })}
+              onSave={(savedRecipe) => {
+                let updated = [...data.recipes];
+                if (recipeModal.item) {
+                  updated = updated.map(r => r.id === savedRecipe.id ? savedRecipe : r);
+                  showToast('Recipe updated');
+                } else {
+                  updated.unshift({ ...savedRecipe, id: 'r_' + Date.now() });
+                  showToast('New recipe added');
+                }
+                setData({ ...data, recipes: updated });
+                setRecipeModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {recipeDetailModal.open && recipeDetailModal.recipe && (
+            <RecipeDetailModal 
+              recipe={recipeDetailModal.recipe}
+              onClose={() => setRecipeDetailModal({ open: false, recipe: null })}
+              onAddIngredients={() => handleAddIngredientsToGroceries(recipeDetailModal.recipe)}
+            />
+          )}
+
+          {billModal.open && (
+            <BillModal 
+              item={billModal.item}
+              onClose={() => setBillModal({ open: false, item: null })}
+              onSave={(savedBill) => {
+                let updated = [...data.bills];
+                if (billModal.item) {
+                  updated = updated.map(b => b.id === savedBill.id ? savedBill : b);
+                  showToast('Bill record updated');
+                } else {
+                  updated.unshift({ ...savedBill, id: 'b_' + Date.now() });
+                  showToast('New bill added');
+                }
+                setData({ ...data, bills: updated });
+                setBillModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {contactModal.open && (
+            <ContactModal 
+              item={contactModal.item}
+              onClose={() => setContactModal({ open: false, item: null })}
+              onSave={(savedCt) => {
+                let updated = [...data.contacts];
+                if (contactModal.item) {
+                  updated = updated.map(c => c.id === savedCt.id ? savedCt : c);
+                  showToast('Contact updated');
+                } else {
+                  updated.unshift({ ...savedCt, id: 'ct_' + Date.now() });
+                  showToast('Emergency contact added');
+                }
+                setData({ ...data, contacts: updated });
+                setContactModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {noteModal.open && (
+            <NoteModal 
+              item={noteModal.item}
+              onClose={() => setNoteModal({ open: false, item: null })}
+              onSave={(savedNote) => {
+                let updated = [...data.homeNotes];
+                if (noteModal.item) {
+                  updated = updated.map(n => n.id === savedNote.id ? savedNote : n);
+                  showToast('Home note updated');
+                } else {
+                  updated.unshift({ ...savedNote, id: 'hn_' + Date.now() });
+                  showToast('Home note card added');
+                }
+                setData({ ...data, homeNotes: updated });
+                setNoteModal({ open: false, item: null });
+              }}
+            />
+          )}
+
+          {resetConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center text-xl mb-4">
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Reset Data to Default?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                  This action will override all your current custom chores, family profiles, recipes, bills, and groceries with the initial sample data set.
+                </p>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button 
+                    onClick={() => setResetConfirmOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleResetData}
+                    className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl shadow"
+                  >
+                    Yes, Reset Everything
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+  </script>
+</body>
+</html>

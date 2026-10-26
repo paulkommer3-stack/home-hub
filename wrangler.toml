@@ -1,0 +1,10 @@
+name = "home-hub"
+pages_build_output_dir = "."
+
+[observability]
+enabled = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "home_hub_db"
+database_id = "576c4d94-9d69-49d4-8b63-4efef3d2dfc9"
