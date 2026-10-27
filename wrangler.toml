@@ -1,9 +1,6 @@
 name = "kommer-home-hub"
 pages_build_output_dir = "."
 
-[observability]
-enabled = false
-
 [[d1_databases]]
 binding = "DB"
 database_name = "home_hub_db"
