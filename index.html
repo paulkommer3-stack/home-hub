@@ -2607,6 +2607,7 @@
       const [lastSyncedTime, setLastSyncedTime] = useState(null);
 
       const isRemoteUpdateRef = useRef(false);
+      const isInitialSyncDoneRef = useRef(false);
 
       // Active Modals
       const [choreModal, setChoreModal] = useState({ open: false, item: null });
@@ -2632,12 +2633,18 @@
               setSyncStatus('connected');
               setLastSyncedTime(new Date(result.updatedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
             } else {
+              // Database row doesn't exist yet for this passcode, upload current data to initialize it
+              fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code, payload: data })
+              });
               setSyncStatus('connected');
             }
+            isInitialSyncDoneRef.current = true;
           }
         } catch (err) {
-          // Cloudflare D1 function not reached, fallback smoothly
-          console.log("Cloudflare D1 endpoint not available locally. Defaulting to storage.");
+          console.log("Cloudflare D1 endpoint error:", err);
         }
       };
 
@@ -2649,16 +2656,16 @@
         }
 
         setSyncStatus('connecting');
-        fetchD1Sync(syncPasscode);
+        fetchD1Sync(syncPasscode.trim());
 
         const interval = setInterval(() => {
-          fetchD1Sync(syncPasscode);
+          fetchD1Sync(syncPasscode.trim());
         }, 8000);
 
         return () => clearInterval(interval);
       }, [syncPasscode]);
 
-      // Push state to LocalStorage and Cloudflare D1 backend (/api/sync)
+      // Save to LocalStorage and push changes to D1 ONLY when user modifies data
       useEffect(() => {
         localStorage.setItem('home_hub_data_v2', JSON.stringify(data));
 
@@ -2667,7 +2674,7 @@
           return;
         }
 
-        if (syncPasscode.trim()) {
+        if (syncPasscode.trim() && isInitialSyncDoneRef.current) {
           fetch('/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2679,17 +2686,18 @@
             }
           }).catch(() => {});
         }
-      }, [data, syncPasscode]);
+      }, [data]);
 
       const handleSavePasscode = (code) => {
         const trimmed = code.trim();
+        isInitialSyncDoneRef.current = false;
         setSyncPasscode(trimmed);
         localStorage.setItem('home_hub_sync_code', trimmed);
         if (!trimmed) {
           setSyncStatus('local');
           showToast('Switched to Local Mode');
         } else {
-          showToast(`Household passcode set to "${trimmed}". Connected to Cloud sync!`);
+          showToast(`Connected to Cloud sync with passcode "${trimmed}"`);
           fetchD1Sync(trimmed);
         }
       };
